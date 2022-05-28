@@ -13,11 +13,11 @@ class PubsubReceivingService(GenericService):
     is_default = True
     
     def time_event(self, t):
-        print "Received notification for the time_event !!!", t
+        print("Received notification for the time_event !!!", t)
         
 @defer.inlineCallbacks
 def unsubscribe(f, event, key):
-    print "Unsubscribed:", (yield f.rpc('example.pubsub.unsubscribe', [key,]))
+    print("Unsubscribed:", (yield f.rpc('example.pubsub.unsubscribe', [key,])))
     reactor.stop()
     
 @defer.inlineCallbacks
@@ -39,14 +39,14 @@ def main():
     yield d # Wait to on_connect event
 
     (event, subscription_key) = (yield f.subscribe('example.pubsub.subscribe', [1,]))
-    print "Subscribed:", event, subscription_key
+    print("Subscribed:", event, subscription_key)
     reactor.callLater(3, unsubscribe, f, event, subscription_key)
     
-    print (yield f.rpc('discovery.list_services', []))
+    print((yield f.rpc('discovery.list_services', [])))
     #print (yield f.rpc('discovery.list_methods', ['example']))
     #print (yield f.rpc('discovery.list_params', ['example.ping']))
 
-    print (yield f.rpc('example.ping', ['testing payload']))
+    print((yield f.rpc('example.ping', ['testing payload'])))
     '''
     s = time.time()
     x = 10

@@ -6,14 +6,14 @@ import hashlib
 import json
 import string
 
-import helpers
-import semaphore
+from . import helpers
+from . import semaphore
 #from storage import Storage
-from protocol import Protocol, RequestCounter
-from event_handler import GenericEventHandler
-import settings
+from .protocol import Protocol, RequestCounter
+from .event_handler import GenericEventHandler
+from . import settings
 
-import logger
+from . import logger
 log = logger.get_logger('http_transport')
 
 class Transport(object):
@@ -124,7 +124,7 @@ class HttpSession(Session):
     @classmethod
     def on_expire(cls, sess_obj):
         # FIXME: Close protocol connection
-        print "EXPIRING SESSION", sess_obj
+        print("EXPIRING SESSION", sess_obj)
         
         if sess_obj.protocol:
             sess_obj.protocol.connectionLost(Failure(Exception("HTTP session closed")))

@@ -1,6 +1,6 @@
 import weakref
 from twisted.internet import reactor
-from services import GenericService
+from .services import GenericService
 
 class ConnectionRegistry(object):
     __connections = weakref.WeakKeyDictionary()
@@ -14,7 +14,7 @@ class ConnectionRegistry(object):
         try:
             del cls.__connections[conn]
         except:
-            print "Warning: Cannot remove connection from ConnectionRegistry"  
+            print("Warning: Cannot remove connection from ConnectionRegistry")  
         
     @classmethod
     def get_session(cls, conn):
@@ -31,13 +31,13 @@ class ConnectionRegistry(object):
     
     @classmethod
     def iterate(cls):
-        return cls.__connections.iterkeyrefs()
+        return cls.__connections.keyrefs()
         
 def dump_connections():
     for x in ConnectionRegistry.iterate():
         c = x()
         c.transport.write('cus')
-        print '!!!', c
+        print('!!!', c)
     reactor.callLater(5, dump_connections)
     
 #reactor.callLater(0, dump_connections)        

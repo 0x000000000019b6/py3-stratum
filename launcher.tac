@@ -1,6 +1,12 @@
 from twisted.python import log
 import stratum
+import platform
+
+print("Python Version:", platform.python_version())
+
 import stratum.settings as settings
+
+
 
 # This variable is used as an application handler by twistd 
 application = stratum.setup()
@@ -18,4 +24,4 @@ if settings.DEBUG:
 try:
     import service_repository
 except ImportError:
-    print "***** Is service_repository missing? Add service_repository module to your python path!"
+    print ("***** Is service_repository missing? Add service_repository module to your python path!")

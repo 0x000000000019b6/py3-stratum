@@ -4,7 +4,7 @@ import hashlib
 import weakref
 import re
 
-import custom_exceptions
+from . import custom_exceptions
 
 VENDOR_RE = re.compile(r'\[(.*)\]')
 
@@ -51,7 +51,7 @@ class ServiceFactory(object):
                 service_type = service_type.replace('[%s]' % vendor, '')
             except:
                 raise
-                #raise custom_exceptions.ServiceNotFoundException("Invalid syntax in service name '%s'" % type_name[0])
+                #raise custom_exceptions.ServiceNotFoundException('Invalid syntax in service name %s' % type_name[0])
             
         return (service_type, vendor, method_name)
     
@@ -59,8 +59,13 @@ class ServiceFactory(object):
     def call(cls, method, params, connection_ref=None):
         try:
             (service_type, vendor, func_name) = cls._split_method(method)
+            #print(service_type, vendor, func_name)
+            
+            if service_type == "mining.extranonce":
+                service_type = "mining"
+                func_name = "extranonce_subscribe"
         except ValueError:
-            raise custom_exceptions.MethodNotFoundException("Method name parsing failed. You *must* use format <service name>.<method name>, e.g. 'example.ping'")
+            raise custom_exceptions.MethodNotFoundException('Method name parsing failed. You *must* use format <service name>.<method name>, e.g. example.ping')
 
         try:
             if func_name.startswith('_'):
@@ -72,7 +77,7 @@ class ServiceFactory(object):
             if not callable(func):
                 raise
         except:
-            raise custom_exceptions.MethodNotFoundException("Method '%s' not found for service '%s'" % (func_name, service_type))
+            raise custom_exceptions.MethodNotFoundException('Method %s not found for service %s' % (func_name, service_type))
         
         def _run(func, *params):
             return wrap_result_object(func(*params))
@@ -87,22 +92,22 @@ class ServiceFactory(object):
             try:
                 return cls.registry[service_type][vendor]
             except KeyError:
-                raise custom_exceptions.ServiceNotFoundException("Class for given service type and vendor isn't registered")
+                raise custom_exceptions.ServiceNotFoundException('Class for given service type and vendor is not registered')
         
         # Lookup for any vendor, prefer default one
         try:
             vendors = cls.registry[service_type]        
         except KeyError:
-            raise custom_exceptions.ServiceNotFoundException("Class for given service type isn't registered")
+            raise custom_exceptions.ServiceNotFoundException('Class for given service type is not registered')
 
         last_found = None        
-        for _, _cls in vendors.items():
+        for _, _cls in list(vendors.items()):
             last_found = _cls
             if last_found.is_default:
                 return last_found
             
         if not last_found:
-            raise custom_exceptions.ServiceNotFoundException("Class for given service type isn't registered")
+            raise custom_exceptions.ServiceNotFoundException('Class for given service type is not registered')
         
         return last_found
 
@@ -118,13 +123,13 @@ class ServiceFactory(object):
             return
         
         if not service_type:
-            raise custom_exceptions.MissingServiceTypeException("Service class '%s' is missing 'service_type' property." % _cls)
+            raise custom_exceptions.MissingServiceTypeException('Service class %s is missing service_type property.' % _cls)
 
         if not service_vendor:
-            raise custom_exceptions.MissingServiceVendorException("Service class '%s' is missing 'service_vendor' property." % _cls)
+            raise custom_exceptions.MissingServiceVendorException('Service class %s is missing service_vendor property.' % _cls)
 
         if is_default == None:
-            raise custom_exceptions.MissingServiceIsDefaultException("Service class '%s' is missing 'is_default' property." % _cls)
+            raise custom_exceptions.MissingServiceIsDefaultException('Service class %s is missing is_default property.' % _cls)
         
         if is_default:
             # Check if there's not any other default service
@@ -132,7 +137,7 @@ class ServiceFactory(object):
             try:
                 current = cls.lookup(service_type)
                 if current.is_default:
-                    raise custom_exceptions.DefaultServiceAlreadyExistException("Default service already exists for type '%s'" % service_type)
+                    raise custom_exceptions.DefaultServiceAlreadyExistException('Default service already exists for type %s' % service_type)
             except custom_exceptions.ServiceNotFoundException:
                 pass
         
@@ -197,23 +202,23 @@ def synchronous(func):
 
 def admin(func):
     '''Requires an extra first parameter with superadministrator password'''
-    import settings
+    from . import settings
     def inner(*args, **kwargs):
         if not len(args):
-            raise custom_exceptions.UnauthorizedException("Missing password")
+            raise custom_exceptions.UnauthorizedException('Missing password')
 
         if settings.ADMIN_RESTRICT_INTERFACE != None:
             ip = args[0].connection_ref()._get_ip()
             if settings.ADMIN_RESTRICT_INTERFACE != ip:
-                raise custom_exceptions.UnauthorizedException("RPC call not allowed from your IP")
+                raise custom_exceptions.UnauthorizedException('RPC call not allowed from your IP')
             
         if not settings.ADMIN_PASSWORD_SHA256:
-            raise custom_exceptions.UnauthorizedException("Admin password not set, RPC call disabled")
+            raise custom_exceptions.UnauthorizedException('Admin password not set, RPC call disabled')
 
         (password, args) = (args[1], [args[0],] + list(args[2:]))
 
-        if hashlib.sha256(password).hexdigest() != settings.ADMIN_PASSWORD_SHA256:
-            raise custom_exceptions.UnauthorizedException("Wrong password")
+        if hashlib.sha256(str(password).encode('utf-8','replace')).hexdigest() != settings.ADMIN_PASSWORD_SHA256:
+            raise custom_exceptions.UnauthorizedException('Wrong password')
 
         return func(*args, **kwargs)
     return inner
@@ -223,8 +228,7 @@ class ServiceMetaclass(type):
         super(ServiceMetaclass, cls).__init__(name, bases, _dict)
         ServiceFactory.register_service(cls, _dict)
         
-class GenericService(object):
-    __metaclass__ = ServiceMetaclass
+class GenericService(object, metaclass=ServiceMetaclass):
     service_type = None
     service_vendor = None
     is_default = None
@@ -241,10 +245,10 @@ class ServiceDiscovery(GenericService):
     is_default = True
     
     def list_services(self):
-        return ServiceFactory.registry.keys()
+        return list(ServiceFactory.registry.keys())
     
     def list_vendors(self, service_type):
-        return ServiceFactory.registry[service_type].keys()
+        return list(ServiceFactory.registry[service_type].keys())
     
     def list_methods(self, service_name):
         # Accepts also vendors in square brackets: firstbits[firstbits.com]
@@ -255,7 +259,7 @@ class ServiceDiscovery(GenericService):
         service = ServiceFactory.lookup(service_type, vendor)
         out = []
         
-        for name, obj in service.__dict__.items():
+        for name, obj in list(service.__dict__.items()):
             
             if name.startswith('_'):
                 continue

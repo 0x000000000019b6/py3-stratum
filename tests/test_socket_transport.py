@@ -43,13 +43,13 @@ class TcpTransportTestCase(unittest.TestCase):
         d = self.failUnlessFailure(on_connect, Exception)
         self._connect(HOSTNAME, 50999, on_connect, None)
                 
-        print "Please wait, this will take few seconds to complete..."
+        print("Please wait, this will take few seconds to complete...")
         yield d
 
     @defer.inlineCallbacks
     def test_ping(self):
         result = (yield self.f.rpc('node.ping', ['Some data',]))
-        self.assertEquals(result, 'Some data', 'hu')
+        self.assertEqual(result, 'Some data', 'hu')
           
     @defer.inlineCallbacks
     def test_banner(self):

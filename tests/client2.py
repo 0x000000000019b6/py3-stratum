@@ -1,5 +1,5 @@
 '''The simplest non-twisted client using HTTP polling'''
-import urllib2
+import urllib.request, urllib.error, urllib.parse
 import time
 
 n = 1
@@ -27,14 +27,14 @@ headers['content-type'] = 'application/stratum'
 s = time.time()
 
 for x in range(n):
-    r = urllib2.Request('http://california.stratum.bitcoin.cz:8000', data, headers)
+    r = urllib.request.Request('http://california.stratum.bitcoin.cz:8000', data, headers)
 #    r = urllib2.Request('http://localhost:8000', data, headers)
-    resp = urllib2.urlopen(r)
+    resp = urllib.request.urlopen(r)
 
     for h in resp.headers:
-        print h, resp.headers[h]
+        print(h, resp.headers[h])
         if h == 'set-cookie':
             open('cookie.txt', 'w').write(resp.headers[h])
         
-    print resp.read()
-print float(n) / (time.time() - s)
+    print(resp.read())
+print(float(n) / (time.time() - s))

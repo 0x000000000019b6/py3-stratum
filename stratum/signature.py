@@ -3,25 +3,25 @@ try:
     import ecdsa
     from ecdsa import curves
 except ImportError:
-    print "ecdsa package not installed. Signing of messages not available."
+    print("ecdsa package not installed. Signing of messages not available.")
     ecdsa = None
     
 import base64
 import hashlib
 import time
 
-import jsonical
+from . import jsonical
 import json
-import custom_exceptions
+from . import custom_exceptions
 
 if ecdsa:
     # secp256k1, http://www.oid-info.com/get/1.3.132.0.10
-    _p = 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEFFFFFC2FL
-    _r = 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEBAAEDCE6AF48A03BBFD25E8CD0364141L
-    _b = 0x0000000000000000000000000000000000000000000000000000000000000007L
-    _a = 0x0000000000000000000000000000000000000000000000000000000000000000L
-    _Gx = 0x79BE667EF9DCBBAC55A06295CE870B07029BFCDB2DCE28D959F2815B16F81798L
-    _Gy = 0x483ada7726a3c4655da4fbfc0e1108a8fd17b448a68554199c47d08ffb10d4b8L
+    _p = 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEFFFFFC2F
+    _r = 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEBAAEDCE6AF48A03BBFD25E8CD0364141
+    _b = 0x0000000000000000000000000000000000000000000000000000000000000007
+    _a = 0x0000000000000000000000000000000000000000000000000000000000000000
+    _Gx = 0x79BE667EF9DCBBAC55A06295CE870B07029BFCDB2DCE28D959F2815B16F81798
+    _Gy = 0x483ada7726a3c4655da4fbfc0e1108a8fd17b448a68554199c47d08ffb10d4b8
     curve_secp256k1 = ecdsa.ellipticcurve.CurveFp(_p, _a, _b)
     generator_secp256k1 = ecdsa.ellipticcurve.Point(curve_secp256k1, _Gx, _Gy, _r)
     oid_secp256k1 = (1,3,132,0,10)
@@ -32,7 +32,7 @@ if ecdsa:
 
 def generate_keypair():
     if not ecdsa:
-        raise custom_exceptions.SigningNotAvailableException("ecdsa not installed")
+        raise custom_exceptions.SigningNotAvailableException('ecdsa not installed')
     
     private_key = ecdsa.SigningKey.generate(curve=SECP256k1)
     public_key = private_key.get_verifying_key()
@@ -43,7 +43,7 @@ def load_privkey_pem(filename):
         
 def sign(privkey, data):
     if not ecdsa:
-        raise custom_exceptions.SigningNotAvailableException("ecdsa not installed")
+        raise custom_exceptions.SigningNotAvailableException('ecdsa not installed')
 
     hash = hashlib.sha256(data).digest()
     signature = privkey.sign_digest(hash, sigencode=ecdsa.util.sigencode_der)
@@ -51,7 +51,7 @@ def sign(privkey, data):
 
 def verify(pubkey, signature, data):
     if not ecdsa:
-        raise custom_exceptions.SigningNotAvailableException("ecdsa not installed")
+        raise custom_exceptions.SigningNotAvailableException('ecdsa not installed')
 
     hash = hashlib.sha256(data).digest()
     sign = base64.b64decode(signature)
@@ -94,12 +94,12 @@ def jsonrpc_loads_verify(pubkeys, txt):
     signature_time = data['sign_time']
     
     if signature_algo != 'ecdsa;SECP256k1':
-        raise custom_exceptions.UnknownSignatureAlgorithmException("%s is not supported" % signature_algo)
+        raise custom_exceptions.UnknownSignatureAlgorithmException('%s is not supported' % signature_algo)
     
     try:
         pubkey = pubkeys[signature_id]
     except KeyError:
-        raise custom_exceptions.UnknownSignatureIdException("Public key for '%s' not found" % signature_id)
+        raise custom_exceptions.UnknownSignatureIdException('Public key for %s not found' % signature_id)
     
     signature = data['sign']
     message_id = data['id']
@@ -113,7 +113,7 @@ def jsonrpc_loads_verify(pubkeys, txt):
     txt = jsonical.dumps(data)
     
     if not verify(pubkey, signature, txt):
-        raise custom_exceptions.SignatureVerificationFailedException("Signature doesn't match to given data")
+        raise custom_exceptions.SignatureVerificationFailedException('Signature does not match to given data')
     
     if method:
         # It's a request
@@ -125,4 +125,4 @@ def jsonrpc_loads_verify(pubkeys, txt):
 
 if __name__ == '__main__':
     (private, public) = generate_keypair()
-    print private.to_pem()
+    print(private.to_pem())

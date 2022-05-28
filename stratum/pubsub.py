@@ -1,6 +1,6 @@
 import weakref
-from connection_registry import ConnectionRegistry
-import custom_exceptions
+from .connection_registry import ConnectionRegistry
+from . import custom_exceptions
 import hashlib
 
 def subscribe(func):
@@ -40,7 +40,7 @@ class Subscription(object):
     def get_key(self):
         '''This is an identifier for current subscription. It is sent to the client,
         so result should not contain any sensitive information.'''
-        return hashlib.md5(str((self.event, self.params))).hexdigest()
+        return hashlib.md5(str((self.event, self.params)).encode('utf-8')).hexdigest()
     
     def get_session(self):
         '''Connection session may be useful in filter or process functions'''
@@ -82,29 +82,39 @@ class Subscription(object):
         return not self.__eq__(other)
     
 class Pubsub(object):
-    __subscriptions = {}
+    subscriptions = {}
     
     @classmethod
     def subscribe(cls, connection, subscription):
         if connection == None:
-            raise custom_exceptions.PubsubException("Subscriber not connected")
+            raise custom_exceptions.PubsubException('Subscriber not connected')
         
         key = subscription.get_key()
         session = ConnectionRegistry.get_session(connection)
         if session == None:
-            raise custom_exceptions.PubsubException("No session found")
+            raise custom_exceptions.PubsubException('No session found')
         
         subscription.connection_ref = weakref.ref(connection)
         session.setdefault('subscriptions', {})
         
         if key in session['subscriptions']:
-            raise custom_exceptions.AlreadySubscribedException("This connection is already subscribed for such event.")
+            raise custom_exceptions.AlreadySubscribedException('This connection is already subscribed for such event.')
         
         session['subscriptions'][key] = subscription
-                    
-        cls.__subscriptions.setdefault(subscription.event, weakref.WeakKeyDictionary())
-        cls.__subscriptions[subscription.event][subscription] = None
+        #print("subscription:",subscription.get_key())
+        cls.subscriptions.setdefault(subscription.event, weakref.WeakKeyDictionary())
+        cls.subscriptions[subscription.event] = {}
+        cls.subscriptions[subscription.event][subscription.get_key()] = subscription
+                     
+        #subEvent = subscription.event
         
+        #for sub in cls.subscriptions.get(subEvent, weakref.WeakKeyDictionary()).keyrefs():
+        #    sub = sub()
+        #    if sub == subscription:
+        #        cls.subscriptions[subEvent][key] = None
+        #        break
+        
+
         if hasattr(subscription, 'after_subscribe'):
             if connection.on_finish != None:
                 # If subscription is processed during the request, wait to
@@ -121,50 +131,51 @@ class Pubsub(object):
     @classmethod
     def unsubscribe(cls, connection, subscription=None, key=None):
         if connection == None:
-            raise custom_exceptions.PubsubException("Subscriber not connected")
+            raise custom_exceptions.PubsubException('Subscriber not connected')
         
         session = ConnectionRegistry.get_session(connection)
         if session == None:
-            raise custom_exceptions.PubsubException("No session found")
+            raise custom_exceptions.PubsubException('No session found')
         
         if subscription:
             key = subscription.get_key()
 
         try:
-            # Subscription don't need to be removed from cls.__subscriptions,
+            # Subscription don't need to be removed from cls.subscriptions,
             # because it uses weak reference there.
             del session['subscriptions'][key]
         except KeyError:
-            print "Warning: Cannot remove subscription from connection session"
+            print("Warning: Cannot remove subscription from connection session")
             return False
             
         return True
         
     @classmethod
     def get_subscription_count(cls, event):
-        return len(cls.__subscriptions.get(event, {}))
+        return len(cls.subscriptions.get(event, {}))
 
     @classmethod
     def get_subscription(cls, connection, event, key=None):
         '''Return subscription object for given connection and event'''
         session = ConnectionRegistry.get_session(connection)
         if session == None:
-            raise custom_exceptions.PubsubException("No session found")
+            raise custom_exceptions.PubsubException('No session found')
 
         if key == None:    
-            sub = [ sub for sub in session.get('subscriptions', {}).values() if sub.event == event ]
+            sub = [ sub for sub in list(session.get('subscriptions', {}).values()) if sub.event == event ]
             try:
                 return sub[0]
             except IndexError:
-                raise custom_exceptions.PubsubException("Not subscribed for event %s" % event)
+                raise custom_exceptions.PubsubException('Not subscribed for event %s' % event)
 
         else:
-            raise Exception("Searching subscriptions by key is not implemented yet")
+            raise Exception('Searching subscriptions by key is not implemented yet')
               
     @classmethod
     def iterate_subscribers(cls, event):
-        for subscription in cls.__subscriptions.get(event, weakref.WeakKeyDictionary()).iterkeyrefs():
-            subscription = subscription()
+        for key,subscription in cls.subscriptions.get(event, weakref.WeakKeyDictionary()).items():
+        #for subscription in cls.subscriptions.get(event, weakref.WeakKeyDictionary()).values():
+            #subscription = subscription()
             if subscription == None:
                 # Subscriber is no more connected
                 continue

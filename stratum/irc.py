@@ -3,8 +3,8 @@ from twisted.internet import reactor, protocol
 import random
 import string
 
-import custom_exceptions
-import logger
+from . import custom_exceptions
+from . import logger
 log = logger.get_logger('irc')
 
 # Reference to open IRC connection
@@ -14,7 +14,7 @@ def get_connection():
     if _connection:
         return _connection
     
-    raise custom_exceptions.IrcClientException("IRC not connected")
+    raise custom_exceptions.IrcClientException('IRC not connected')
 
 class IrcLurker(irc.IRCClient):        
     def connectionMade(self):
@@ -25,7 +25,7 @@ class IrcLurker(irc.IRCClient):
         _connection = self
 
     def get_peers(self):
-        return self.peers.values()
+        return list(self.peers.values())
 
     def connectionLost(self, reason):
         irc.IRCClient.connectionLost(self, reason)

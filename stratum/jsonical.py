@@ -68,7 +68,7 @@ class Encoder(json.JSONEncoder):
         """
         if isinstance(obj, (datetime.date, datetime.time, datetime.datetime)):
             return '"%s"' % obj.isoformat()
-        elif isinstance(obj, unicode):
+        elif isinstance(obj, str):
             return '"%s"' % unicodedata.normalize('NFD', obj).encode('utf-8')
         elif isinstance(obj, decimal.Decimal):
             return str(obj)
@@ -86,8 +86,8 @@ def dumps(obj, indent=None):
 class Decoder(json.JSONDecoder):
     def raw_decode(self, s, **kw):
         obj, end = super(Decoder, self).raw_decode(s, **kw)
-        if isinstance(obj, types.StringTypes):
-            obj = unicodedata.normalize('NFD', unicode(obj))
+        if isinstance(obj, (str,)):
+            obj = unicodedata.normalize('NFD', str(obj))
         return obj, end
 
 def load(fp):
@@ -107,7 +107,7 @@ def tool():
         raise SystemExit("{0} [infile [outfile]]".format(sys.argv[0]))
     try:
         obj = load(infile)
-    except ValueError, e:
+    except ValueError as e:
         raise SystemExit(e)
     dump(obj, outfile)
     outfile.write('\n')

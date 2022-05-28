@@ -3,18 +3,18 @@ import json
 import time
 import socket
 
-from twisted.protocols.basic import LineOnlyReceiver
+from twisted.protocols.basic import NetstringReceiver,LineOnlyReceiver
 from twisted.internet import defer, reactor, error
 from twisted.python.failure import Failure
 
 #import services
-import stats
-import signature
-import custom_exceptions
-import connection_registry
-import settings
+from . import stats
+from . import signature
+from . import custom_exceptions
+from . import connection_registry
+from . import settings
 
-import logger
+from . import logger
 log = logger.get_logger('protocol')
 
 class RequestCounter(object):
@@ -85,9 +85,12 @@ class Protocol(LineOnlyReceiver):
         '''Overwrite this if transport needs some extra care about data written
         to the socket, like adding message format in websocket.''' 
         try:
-            self.transport.write(data)
-        except AttributeError:
+            self.transport.write(data.encode('utf-8'))
+        #except AttributeError:
             # Transport is disconnected
+        #    pass
+        except Exception as Err:
+            #print(Err)
             pass
         
     def connectionLost(self, reason):
@@ -100,33 +103,78 @@ class Protocol(LineOnlyReceiver):
         self.transport = None # Fixes memory leak (cyclic reference)
  
     def writeJsonRequest(self, method, params, is_notification=False):
-        request_id = None if is_notification else self._get_id() 
+        request_id = None if is_notification else self._get_id()
+
+        data = params
+        if isinstance(data, (tuple,list)):
+            new_data = []
+            for key in data:
+                skey = False
+                
+
+                if isinstance(key, (tuple,list)):
+                    sub_data = []
+                    for sub_key in key:
+                        #print('subkey',type(sub_key), sub_key)
+                        skey = True
+                        if isinstance(sub_key, (bytes)):
+                            str_sub_key = sub_key.decode('utf-8', 'replace')
+                            #str_sub_key = str(sub_key).replace("b'",'$').replace("'",'@')
+                            #str_sub_key = sub_key.decode('utf-8', 'replace')
+                        else:
+                            str_sub_key = sub_key
+                        
+                        sub_data.append(str_sub_key)
+                if skey:
+                    str_key = sub_data
+                else:
+                    if isinstance(key, (bytes)):
+                        str_key = key.decode('utf-8', 'replace')
+                        #str_key = str(key).replace("b'",'$').replace("'",'@')
+                        #str_key = key.decode('utf-8', 'replace')
+                    else:
+                        str_key = key
+
+                new_data.append(str_key)
+
+            data = new_data
+
+        params = data
+
         serialized = json.dumps({'id': request_id, 'method': method, 'params': params})
 
         if self.factory.debug:
             log.debug("< %s" % serialized)
-                    
+
         self.transport_write("%s\n" % serialized)
         return request_id
         
-    def writeJsonResponse(self, data, message_id, use_signature=False, sign_method='', sign_params=[]):        
+    def writeJsonResponse(self, data, message_id, use_signature=False, sign_method='', sign_params=[]):
+        if isinstance(data, (tuple,list)):
+            new_data = []
+            for key in data:
+                if isinstance(key, (bytes)):
+                    key = key.decode('utf-8', 'replace')
+                new_data.append(key)
+            data = new_data
+
         if use_signature:
             serialized = signature.jsonrpc_dumps_sign(self.factory.signing_key, self.factory.signing_id, False,\
                 message_id, sign_method, sign_params, data, None)
         else:
             serialized = json.dumps({'id': message_id, 'result': data, 'error': None})
-            
+
         if self.factory.debug:
-            log.debug("< %s" % serialized)        
+            log.debug("< %s" % serialized)
 
         self.transport_write("%s\n" % serialized)
 
-    def writeJsonError(self, code, message, traceback, message_id, use_signature=False, sign_method='', sign_params=[]):       
+    def writeJsonError(self, code, message, traceback, message_id, use_signature=False, sign_method='', sign_params=[],result=None):       
         if use_signature:
             serialized = signature.jsonrpc_dumps_sign(self.factory.signing_key, self.factory.signing_id, False,\
                 message_id, sign_method, sign_params, None, (code, message, traceback))
         else:
-            serialized = json.dumps({'id': message_id, 'result': None, 'error': (code, message, traceback)})
+            serialized = json.dumps({'id': message_id, 'result': result, 'error': (code, message, traceback)})
         
         self.transport_write("%s\n" % serialized)
 
@@ -144,11 +192,9 @@ class Protocol(LineOnlyReceiver):
             # All handled exceptions should inherit from ServiceException class.
             # Throwing other exception class means that it is unhandled error
             # and we should log it.
-            log.exception(failure)
-            
+            log.exception(failure) 
         sign = False
         code = getattr(failure.value, 'code', -1)
-        
         #if isinstance(failure.value, services.ResultObject):
         #    # Strip ResultObject
         #    sign = failure.value.sign
@@ -171,11 +217,12 @@ class Protocol(LineOnlyReceiver):
         
         TODO: This would deserve some unit test to be sure that future twisted versions
         will work nicely with this.'''
-        
+        from struct import pack
+
         if request_counter == None:
             request_counter = RequestCounter()
             
-        lines  = (self._buffer+data).split(self.delimiter)
+        lines  = (self._buffer+data).split(b'\n')
         self._buffer = lines.pop(-1)
         request_counter.set_count(len(lines))
         self.on_finish = request_counter.on_finish
@@ -221,7 +268,7 @@ class Protocol(LineOnlyReceiver):
         except:
             #self.writeGeneralError("Cannot decode message '%s'" % line)
             request_counter.finish()
-            raise custom_exceptions.ProtocolException("Cannot decode message '%s'" % line.strip())
+            raise custom_exceptions.ProtocolException('Cannot decode message %s' % line.strip())
         
         if self.factory.debug:
             log.debug("> %s" % message)
@@ -231,19 +278,20 @@ class Protocol(LineOnlyReceiver):
         msg_params = message.get('params')
         msg_result = message.get('result')
         msg_error = message.get('error')
-                                        
+        self.session['msg_id'] = msg_id
+            
         if msg_method:
             # It's a RPC call or notification
             try:
                 result = self.event_handler._handle_event(msg_method, msg_params, connection_ref=self)
                 if result == None and msg_id != None:
                     # event handler must return Deferred object or raise an exception for RPC request
-                    raise custom_exceptions.MethodNotFoundException("Event handler cannot process method '%s'" % msg_method)
-            except:
+                    raise custom_exceptions.MethodNotFoundException('Event handler cannot process method %s' % msg_method)
+            except Exception as exc:
                 failure = Failure()
                 self.process_failure(failure, msg_id, msg_method, msg_params, request_counter)
-
-            else:    
+            else:
+                   
                 if msg_id == None:
                     # It's notification, don't expect the response
                     request_counter.decrease()
@@ -251,6 +299,8 @@ class Protocol(LineOnlyReceiver):
                     # It's a RPC call
                     result.addCallback(self.process_response, msg_id, msg_method, msg_params, request_counter)
                     result.addErrback(self.process_failure, msg_id, msg_method, msg_params, request_counter)
+                    
+                 
             
         elif msg_id:
             # It's a RPC response
@@ -262,18 +312,16 @@ class Protocol(LineOnlyReceiver):
                 del self.lookup_table[msg_id]
             except KeyError:
                 # When deferred object for given message ID isn't found, it's an error
-                raise custom_exceptions.ProtocolException("Lookup for deferred object for message ID '%s' failed." % msg_id)
-
+                raise custom_exceptions.ProtocolException('Lookup for deferred object for message ID %s failed.' % msg_id)  
             # If there's an error, handle it as errback
             # If both result and error are null, handle it as a success with blank result
             if msg_error != None:
                 meta['defer'].errback(custom_exceptions.RemoteServiceException(msg_error[0], msg_error[1], msg_error[2]))
             else:
-                meta['defer'].callback(msg_result)
-            
+                meta['defer'].callback(msg_result) 
         else:
             request_counter.decrease()
-            raise custom_exceptions.ProtocolException("Cannot handle message '%s'" % line)
+            raise custom_exceptions.ProtocolException('Cannot handle message %s' % line)
           
     def rpc(self, method, params, is_notification=False):
         '''
