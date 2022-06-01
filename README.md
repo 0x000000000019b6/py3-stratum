@@ -15,7 +15,7 @@ Forked from: https://github.com/ahmedbodi/stratum
 
  - **From GIT, for developers:**
    
-	``` git clone git://github.com/0x000000000019b6/py3-stratum.git ```
+	``` git clone git://github.com/0x000000000019b6/py3stratum.git ```
    
 	``` sudo apt-get install python3-dev ```
    
@@ -27,7 +27,7 @@ Forked from: https://github.com/ahmedbodi/stratum
     
  - **From package, permanent install for production use:**
    
-	``` git clone git://github.com/0x000000000019b6/py3-stratum.git ```
+	``` git clone git://github.com/0x000000000019b6/py3stratum.git ```
    
 	``` sudo apt-get install python3-dev ```
    
