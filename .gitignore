@@ -1,7 +1,7 @@
 __pycache__/
 *.py[cod]
 *$py.class
-
+py3stratum.egg*
 # Logs
 *.log
 lib/config.py
