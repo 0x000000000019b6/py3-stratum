@@ -1,10 +1,10 @@
 from twisted.python import log
-import stratum
+import py3_stratum
 import platform
 
 print("Python Version:", platform.python_version())
 
-import stratum.settings as settings
+import py3_stratum.settings as settings
 
 
 

@@ -2,8 +2,8 @@ from twisted.internet import reactor
 from twisted.internet import defer
 
 #import custom_exceptions
-from stratum.socket_transport import SocketTransportClientFactory
-from stratum.services import GenericService, ServiceEventHandler
+from py3stratum.socket_transport import SocketTransportClientFactory
+from py3stratum.services import GenericService, ServiceEventHandler
 
 import time
 

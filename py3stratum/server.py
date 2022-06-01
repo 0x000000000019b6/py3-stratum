@@ -21,7 +21,7 @@ def setup(setup_event=None):
     #application.setComponent(ILogObserver, FileLogObserver(logfile).emit)
 
     if settings.ENABLE_EXAMPLE_SERVICE:
-        import stratum.example_service
+        import py3stratum.example_service
 
     if setup_event == None:
         setup_finalize(None, application)
@@ -46,7 +46,7 @@ def setup_finalize(event, application):
     #from . import websocket_transport
     from . import irc
     
-    from stratum import settings
+    from py3stratum import settings
     
     try:
         from . import signature
