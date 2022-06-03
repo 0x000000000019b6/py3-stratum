@@ -2,6 +2,9 @@ __pycache__/
 *.py[cod]
 *$py.class
 py3stratum.egg*
+py3stratum.egg-info
+dist
+build
 # Logs
 *.log
 lib/config.py
