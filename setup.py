@@ -11,5 +11,5 @@ setup(name='py3stratum',
       packages=['py3stratum',],
       py_modules=['distribute_setup',],
       zip_safe=False,
-      install_requires=['setuptools-rust', 'Twisted', 'ecdsa', 'cryptography>=35.0', 'pyopenssl', 'autobahn==22.4.2', 'pyasn1', 'service-identity',]
+      install_requires=['setuptools-rust', 'Twisted', 'ecdsa', 'cryptography>=35.0', 'pyopenssl', 'autobahn==21.2.1', 'pyasn1', 'service-identity',]
      )
