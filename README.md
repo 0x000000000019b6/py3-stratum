@@ -19,11 +19,11 @@ Forked from: https://github.com/ahmedbodi/stratum
    
 	``` sudo apt-get install python3-dev ```
    
-	``` cd py3-stratum ``` 
+	``` cd py3stratum ``` 
    
 	``` sudo python3 setup.py develop ``` 
     
-	``` cp stratum/config_sample.py stratum/config.py ```
+	``` cp py3stratum/config_sample.py py3stratum/config.py ```
     
  - **From package, permanent install for production use:**
    
@@ -33,11 +33,11 @@ Forked from: https://github.com/ahmedbodi/stratum
    
 	``` sudo apt-get install python3-setuptools ```
    
-	``` cd py3-stratum ``` 
+	``` cd py3stratum ``` 
    
 	``` sudo python3 setup.py install ``` 
 
-	``` cp stratum/config_sample.py stratum/config.py ```
+	``` cp py3stratum/config_sample.py py3stratum/config.py ```
 
 ***Note:*** *Debian don't have a 'sudo' command, please do the installation
 process as a root user.*
@@ -50,7 +50,7 @@ Edit at least those values: HOSTNAME, BITCOIN_TRUSTED_*
 
  - **Message signatures:**
 For enabling message signatures, generate server's ECDSA key by
-```python3 stratum/signature.py > signing_key.pem```
+```python3 py3stratum/signature.py > signing_key.pem```
 and fill correct values to SIGNING_KEY and SIGNING_ID (config.py)
 
 - **Creating keys for SSL-based transports**

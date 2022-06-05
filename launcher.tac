@@ -7,7 +7,7 @@ print("Python Version:", platform.python_version())
 import py3stratum.settings as settings
 
 # This variable is used as an application handler by twistd 
-application = stratum.setup()
+application = py3stratum.setup()
 
 from twisted.internet import reactor
 
