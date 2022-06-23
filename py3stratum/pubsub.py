@@ -2,6 +2,10 @@ import weakref
 from .connection_registry import ConnectionRegistry
 from . import custom_exceptions
 import hashlib
+import random
+import string
+from . import logger
+log = logger.get_logger('pubsub')
 
 def subscribe(func):
     '''Decorator detect Subscription object in result and subscribe connection'''
@@ -21,7 +25,7 @@ def unsubscribe(func):
     return inner
 
 class Subscription(object):
-    def __init__(self, event=None, **params):
+    def __init__(self, event=None, params=None):
         if hasattr(self, 'event'):
             if event:
                 raise Exception("Event name already defined in Subscription object")
@@ -30,14 +34,64 @@ class Subscription(object):
                 raise Exception("Please define event name in constructor")
             else:
                 self.event = event
-        
+
         self.params = params # Internal parameters for subscription object
         self.connection_ref = None
-            
+        self.client_id = None
+        if self.params is not None and len(self.params) > 0:
+            try:
+                self.miner_version = self.params[0]
+            except:
+                self.miner_version = None
+        self.worker_name = None
+        self.worker_password = None
+
     def process(self, *args, **kwargs):
         return args
-            
+
+    def set_worker(self,session=None):
+        if session is None:
+            session = self.connection_ref().get_session()
+        if self.worker_name is None or self.worker_password is None:
+            if 'authorized' in session:
+                for worker_name,worker_password in session['authorized'].items():
+                    self.worker_name = worker_name
+                    self.worker_password = worker_password
+
+    def get_info(self):
+        #log.debug("Subscription vars: %s" % str(vars(self)))
+
+        if self.worker_name is None or self.worker_password is None:
+            log.debug("Subscribe: (ID: %s), (IP: %s), (Miner Version: %s)" % (
+                            str(self.get_key()),
+                            str(self.connection_ref()._get_ip()),
+                            str(self.miner_version)
+                        )
+                    )
+        else:
+            log.debug("Subscription: (ID: %s), (IP: %s), (Worker: %s), (Pass: %s), (Miner Version: %s)" % (
+                            str(self.get_key()),
+                            str(self.connection_ref()._get_ip()),
+                            str(self.worker_name),
+                            str(self.worker_password),
+                            str(self.miner_version)
+                        )
+                    )
+
+    def set_key(self,subscription_keys=[]):
+
+        subscription_key=None
+
+        while subscription_key==None:
+            new_key = str( ''.join(random.choice(string.digits) for i in range(10)))
+            if new_key not in subscription_keys:
+                subscription_key = new_key
+                #print("subscription_key:", subscription_key)
+                continue
+        self.client_id = subscription_key
+
     def get_key(self):
+        return self.client_id
         '''This is an identifier for current subscription. It is sent to the client,
         so result should not contain any sensitive information.'''
         return hashlib.md5(str((self.event, self.params)).encode('utf-8')).hexdigest()
@@ -80,7 +134,10 @@ class Subscription(object):
     
     def __ne__(self, other):
         return not self.__eq__(other)
-    
+
+    def __hash__(self):
+        return hash(self.get_key())
+
 class Pubsub(object):
     subscriptions = {}
     
@@ -88,8 +145,15 @@ class Pubsub(object):
     def subscribe(cls, connection, subscription):
         if connection == None:
             raise custom_exceptions.PubsubException('Subscriber not connected')
-        
+
+        cls.subscriptions.setdefault(subscription.event, weakref.WeakKeyDictionary())
+
+        subscription_keys = list(cls.subscriptions[subscription.event].keys())
+
+        subscription.set_key(subscription_keys)
+
         key = subscription.get_key()
+
         session = ConnectionRegistry.get_session(connection)
         if session == None:
             raise custom_exceptions.PubsubException('No session found')
@@ -101,19 +165,10 @@ class Pubsub(object):
             raise custom_exceptions.AlreadySubscribedException('This connection is already subscribed for such event.')
         
         session['subscriptions'][key] = subscription
-        #print("subscription:",subscription.get_key())
-        cls.subscriptions.setdefault(subscription.event, weakref.WeakKeyDictionary())
-        cls.subscriptions[subscription.event] = {}
-        cls.subscriptions[subscription.event][subscription.get_key()] = subscription
-                     
-        #subEvent = subscription.event
-        
-        #for sub in cls.subscriptions.get(subEvent, weakref.WeakKeyDictionary()).keyrefs():
-        #    sub = sub()
-        #    if sub == subscription:
-        #        cls.subscriptions[subEvent][key] = None
-        #        break
-        
+
+        cls.subscriptions[subscription.event][subscription] = None
+
+        subscription.get_info()
 
         if hasattr(subscription, 'after_subscribe'):
             if connection.on_finish != None:
@@ -173,16 +228,18 @@ class Pubsub(object):
               
     @classmethod
     def iterate_subscribers(cls, event):
-        for key,subscription in cls.subscriptions.get(event, weakref.WeakKeyDictionary()).items():
-        #for subscription in cls.subscriptions.get(event, weakref.WeakKeyDictionary()).values():
-            #subscription = subscription()
+        for subscription in cls.subscriptions.get(event, weakref.WeakKeyDictionary()).keyrefs():
+            subscription = subscription()
             if subscription == None:
                 # Subscriber is no more connected
                 continue
-            
+
+            subscription.get_info()
+
             yield subscription
             
     @classmethod
     def emit(cls, event, *args, **kwargs):
         for subscription in cls.iterate_subscribers(event):                        
             subscription.emit_single(*args, **kwargs)
+
